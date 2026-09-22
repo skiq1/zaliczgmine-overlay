@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ZaliczGmine.pl - overlay",
+  "name": "__MSG_extensionName__",
   "version": "0.0.1",
-  "description": "Wyswietlaj zaliczone gminy na mapach planerów tras.",
+  "description": "__MSG_extensionDescription__",
   "permissions": [
     "storage"
   ],
@@ -14,14 +14,15 @@
     "*://*.komoot.it/*",
     "*://*.komoot.nl/*",
     "*://veloplanner.com/*",
-    "*://zaliczgmine.pl/*"
+    "*://zaliczgmine.pl/*",
+    "*://tickmyride.com/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png"
     },
-    "default_title": "ZaliczGmine.pl"
+    "default_title": "__MSG_extensionTitle__"
   },
   "icons": {
     "16": "assets/icons/icon16.png"
@@ -38,6 +39,7 @@
         "*://veloplanner.com/*"
       ],
       "js": [
+        "i18n.js",
         "logger.js",
         "message-protocol.js",
         "modules/sites.js",
@@ -58,6 +60,7 @@
         "*://veloplanner.com/*"
       ],
       "resources": [
+        "i18n.js",
         "logger.js",
         "message-protocol.js",
         "config.js",
@@ -78,5 +81,6 @@
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "default_locale": "en"
 }

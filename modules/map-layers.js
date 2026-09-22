@@ -1,6 +1,7 @@
 (function(app) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('map-layers');
 
   const { layerIds, sourceIds, styles, zoom: zoomConfig } = app.config;
@@ -58,7 +59,7 @@
   }
 
   function addCommunesLayers() {
-    log.debug('Tworzenie warstw gmin');
+    log.debug('Creating commune layers');
     if (!app.state.map || !app.state.polygons) return;
 
     const { convertToGeoJSON } = app.modules.communesData;
@@ -151,7 +152,7 @@
   }
 
   function toggleLayers(visible, refreshVisibleLayers = true) {
-    log.debug('Zmiana widoczności gmin', { visible });
+    log.debug('Changing commune visibility', { visible });
     app.state.communesVisible = visible;
     const visibility = visible ? 'visible' : 'none';
 
@@ -192,8 +193,9 @@
 
     const visible = app.state.communesVisible;
     button.style.background = visible ? '#348b42' : '#b8c0ba';
+    button.setAttribute('aria-label', t('communes.boundaries'));
     button.setAttribute('aria-checked', String(visible));
-    button.title = visible ? 'Ukryj granice gmin' : 'Pokaż granice gmin';
+    button.title = visible ? t("communes.hideBoundaries") : t("communes.showBoundaries");
     button.firstElementChild.style.transform = visible ? 'translateX(16px)' : 'translateX(0)';
   }
 
@@ -202,13 +204,13 @@
     if (!summary) return;
 
     const hasUser = app.state.visitedCommunesSource !== 'none';
-    const username = hasUser ? (app.state.username || `ID: ${app.state.userId}`) : 'ZaliczGmine.pl';
+    const username = hasUser ? (app.state.username || `ID: ${app.state.userId}`) : globalThis.ZaliczGmineI18n.brand();
     const count = app.state.visitedCommunesIds.size;
     summary.querySelector('[data-username]').textContent = username;
     summary.querySelector('[data-count]').textContent = hasUser
-      ? `${count.toLocaleString('pl-PL')} zaliczonych gmin`
-      : 'Wybierz konto w rozszerzeniu';
-    summary.title = hasUser ? `ZaliczGmine.pl · ${username} · ${count} zaliczonych gmin w Polsce` : 'ZaliczGmine.pl';
+      ? t('communes.visitedCount', { count: count.toLocaleString(globalThis.ZaliczGmineI18n.language) })
+      : t("account.selectInExtension");
+    summary.title = hasUser ? t('account.mapSummary', { username, count }) : globalThis.ZaliczGmineI18n.brand();
   }
 
   function addToggleButton() {
@@ -234,7 +236,7 @@
     button.id = 'zaliczgmine-toggle';
     button.type = 'button';
     button.setAttribute('role', 'switch');
-    button.setAttribute('aria-label', 'Granice gmin');
+    button.setAttribute('aria-label', t("communes.boundaries"));
     button.style.cssText = `
       position: relative; flex: 0 0 40px; width: 40px; height: 24px;
       min-width: 40px; min-height: 24px; margin: 0; padding: 3px;

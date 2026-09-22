@@ -1,6 +1,7 @@
 (function(app, protocol) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('extension-bridge');
 
   const { MESSAGE } = protocol;
@@ -12,7 +13,7 @@
   function request(type, responseType, data, timeoutMs) {
     return new Promise((resolve, reject) => {
       const requestId = createRequestId();
-      log.debug('Wysłanie żądania', { type, requestId });
+      log.debug('Sending request', { type, requestId });
       let timeoutId;
 
       const handler = (event) => {
@@ -22,7 +23,7 @@
         window.removeEventListener('message', handler);
         window.clearTimeout(timeoutId);
 
-        log.debug('Odpowiedź rozszerzenia', { type, requestId, success: !event.data.error && event.data.response?.success !== false });
+        log.debug('Extension response', { type, requestId, success: !event.data.error && event.data.response?.success !== false });
         if (event.data.error) {
           reject(new Error(event.data.error));
         } else {
@@ -35,8 +36,8 @@
 
       timeoutId = window.setTimeout(() => {
         window.removeEventListener('message', handler);
-        log.warn('Przekroczono czas żądania', { type, requestId, timeoutMs });
-        reject(new Error('Brak odpowiedzi rozszerzenia'));
+        log.warn('Request timed out', { type, requestId, timeoutMs });
+        reject(new Error(t("extension.noResponse")));
       }, timeoutMs);
     });
   }
@@ -53,7 +54,7 @@
     );
 
     if (!message.response || !message.response.success) {
-      throw Object.assign(new Error(message.response?.error || 'Nie udało się pobrać danych'), {
+      throw Object.assign(new Error(message.response?.error || t("api.fetchError")), {
         code: message.response?.code, http: message.response?.http
       });
     }

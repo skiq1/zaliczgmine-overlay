@@ -1,13 +1,13 @@
 (function(global) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('zaliczgmine-api');
 
-  const API_BASE = 'https://zaliczgmine.pl/api/';
   const API_ERROR_MESSAGES = {
-    INVALID_REQUEST: 'Nieprawidłowe parametry zapytania',
-    INVALID_COUNTRY: 'Nieobsługiwany kraj',
-    USER_NOT_FOUND: 'Nie znaleziono użytkownika'
+    INVALID_REQUEST: "api.invalidRequest",
+    INVALID_COUNTRY: "api.unsupportedCountry",
+    USER_NOT_FOUND: "api.userNotFound"
   };
 
   function fetchViaRuntime(url) {
@@ -20,7 +20,7 @@
         const runtimeError = chrome.runtime.lastError;
         if (runtimeError || !response?.success) {
           reject(Object.assign(
-            new Error(runtimeError?.message || response?.error || 'Nie udało się pobrać danych'),
+            new Error(runtimeError?.message || response?.error || t("api.fetchError")),
             { code: response?.code, http: response?.http }
           ));
           return;
@@ -34,22 +34,22 @@
   function createZaliczGmineApi(fetchResource = fetchViaRuntime) {
     async function get(endpoint, params) {
       const startedAt = Date.now();
-      log.debug('Żądanie API', { endpoint });
+      log.debug('API request', { endpoint });
       try {
-        const data = await fetchResource(API_BASE + endpoint + '?' + new URLSearchParams(params));
+        const data = await fetchResource(global.ZaliczGmineI18n.apiBase + endpoint + '?' + new URLSearchParams(params));
         if (data?.status === 'error') {
-          throw Object.assign(new Error(data.message || 'Błąd API'), { code: data.code });
+          throw Object.assign(new Error(data.message || t("api.error")), { code: data.code });
         }
         if (data?.status !== 'success' || !Array.isArray(data.items)) {
-          throw new Error('Nieprawidłowa odpowiedź z API');
+          throw new Error(t("api.invalidResponse"));
         }
-        log.debug('Odpowiedź API', { endpoint, count: data.items.length, durationMs: Date.now() - startedAt });
+        log.debug('API response', { endpoint, count: data.items.length, durationMs: Date.now() - startedAt });
         return data;
       } catch (error) {
         if (Object.hasOwn(API_ERROR_MESSAGES, error.code)) {
-          error.message = API_ERROR_MESSAGES[error.code];
+          error.message = t(API_ERROR_MESSAGES[error.code]);
         }
-        log.error('Błąd API', { endpoint, code: error.code, http: error.http, message: error.message });
+        log.error("API error", { endpoint, code: error.code, http: error.http, message: error.message });
         throw error;
       }
     }

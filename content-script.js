@@ -1,10 +1,12 @@
 (function() {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('content-script');
 
   const { MESSAGE } = globalThis.ZaliczGmineMessageProtocol;
   const pageScripts = [
+    'i18n.js',
     'logger.js',
     'message-protocol.js',
     'config.js',
@@ -22,6 +24,9 @@
     'map-app.js'
   ];
   const { isSupportedPage } = globalThis.ZaliczGmineSites;
+  const languageReady = chrome.storage.local.get('language').then(settings => {
+    globalThis.ZaliczGmineI18n.setLanguage(settings.language);
+  });
   let scriptsLoaded = false;
   let scriptsLoading = null;
   let lastPath = location.pathname;
@@ -67,7 +72,7 @@
         window.postMessage({
           type: MESSAGE.STORAGE_RESPONSE,
           requestId: event.data.requestId,
-          data: result
+          data: { ...result, resolvedLanguage: globalThis.ZaliczGmineI18n.language }
         }, window.location.origin);
       });
       return;
@@ -83,12 +88,12 @@
       sendResponse({
         success: false,
         connected: false,
-        error: 'Rozszerzenie dziala tylko podczas planowania lub edycji trasy'
+        error: t("extension.unsupportedPage")
       });
       return false;
     }
 
-    log.debug('Przekazywanie polecenia', { action: request.action });
+    log.debug('Forwarding command', { action: request.action });
     const scriptsReady = loadScripts();
     const requestId = Math.random().toString(36).slice(2);
 
@@ -120,7 +125,7 @@
     });
 
     const timeoutId = setTimeout(() => {
-      log.warn('Przekroczono czas polecenia', { action: request.action, requestId });
+      log.warn('Command timed out', { action: request.action, requestId });
       window.removeEventListener('message', handler);
       sendResponse({ success: false, error: 'Timeout' });
     }, 5000);
@@ -145,19 +150,20 @@
     if (!isSupportedRoute()) return;
 
     scriptsLoading = (async () => {
+      await languageReady;
       for (const script of pageScripts) {
         await injectScript(script);
-        log.debug('Załadowano skrypt', { script });
+        log.debug('Script loaded', { script });
       }
       scriptsLoaded = true;
-      log.debug('Skrypty strony zaladowane');
+      log.debug('Page scripts loaded');
     })();
 
     try {
       await scriptsLoading;
     } catch (error) {
       scriptsLoading = null;
-      log.error('Nie udało się załadować skryptów', error);
+      log.error('Could not load scripts', error);
       throw error;
     }
   }
@@ -172,7 +178,7 @@
     setInterval(() => {
       if (location.pathname === lastPath) return;
       lastPath = location.pathname;
-      log.debug('Zmiana strony', { supported: isSupportedRoute() });
+      log.debug('Page changed', { supported: isSupportedRoute() });
       loadScriptsIfSupported();
     }, 1000);
   }
