@@ -1,4 +1,9 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+  const i18n = globalThis.ZaliczGmineI18n;
+  const settings = await chrome.storage.local.get('language');
+  i18n.setLanguage(settings.language);
+  localize();
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('popup');
   const { ACTION } = globalThis.ZaliczGmineMessageProtocol;
   const api = globalThis.createZaliczGmineApi();
@@ -19,6 +24,35 @@ document.addEventListener('DOMContentLoaded', function() {
   const mapStatusText = document.getElementById('mapStatusText');
   const statusDiv = document.getElementById('status');
 
+  const languageSelect = document.getElementById('languageSelect');
+  languageSelect.value = Object.hasOwn(i18n.messages, settings.language) ? settings.language : 'auto';
+  languageSelect.addEventListener('change', async () => {
+    try {
+      await chrome.storage.local.set({ language: languageSelect.value });
+      document.getElementById('languageReloadHint').hidden = false;
+    } catch (error) {
+      showStatus(t('language.saveError'), 'error');
+    }
+  });
+
+  function localize() {
+    document.documentElement.lang = i18n.language;
+    document.title = i18n.t('app.title');
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = i18n.t(el.dataset.i18n);
+    });
+    for (const attr of ['placeholder', 'aria-label', 'alt']) {
+      document.querySelectorAll(`[data-i18n-${attr}]`).forEach(el => {
+        el.setAttribute(attr, i18n.t(el.getAttribute(`data-i18n-${attr}`)));
+      });
+    }
+    document.querySelector('.header-title').textContent = i18n.brand();
+    document.querySelector('.logo').alt = i18n.brand();
+    document.querySelector('.logo').src = i18n.language === 'pl'
+      ? '../assets/zaliczgmine-badge.png' : '../assets/icons/icon16.svg';
+    document.querySelector('#plannerLinks a[href*="veloplanner"]').href = `https://veloplanner.com/${i18n.language}/plan`;
+  }
+
   init();
 
   async function init() {
@@ -29,9 +63,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function renderSelectedUser(userId, username) {
     selectedUserEl.textContent = userId
-      ? `Wybrano: ${username || 'użytkownik o ID ' + userId} (ID: ${userId})`
-      : 'Nie wybrano konta';
-    selectedUserEl.title = userId ? `ID użytkownika: ${userId}` : '';
+      ? t('account.selected', { username: username || t('account.userIdFallback', { id: userId }), id: userId })
+      : t("account.noneSelected");
+    selectedUserEl.title = userId ? t('account.userIdTitle', { id: userId }) : '';
   }
 
   function loadSelectedUser() {
@@ -85,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
     gpxList.textContent = '';
 
     if (!tracks.length) {
-      gpxStatusText.textContent = 'GPX będzie widoczny jako niebieska linia na mapie.';
+      gpxStatusText.textContent = t("gpx.emptyHint");
       return;
     }
 
@@ -100,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const removeButton = document.createElement('button');
       removeButton.type = 'button';
       removeButton.className = 'btn btn-danger gpx-item-remove';
-      removeButton.textContent = 'Usuń';
+      removeButton.textContent = t("gpx.remove");
       removeButton.addEventListener('click', function() {
         removeGpxTrack(track.id);
       });
@@ -110,14 +144,14 @@ document.addEventListener('DOMContentLoaded', function() {
       gpxList.appendChild(item);
     }
 
-    gpxStatusText.textContent = `Zapisane pliki GPX: ${tracks.length}`;
+    gpxStatusText.textContent = t('gpx.savedCount', { count: tracks.length });
   }
 
   function readSelectedGpx(callback) {
     const file = gpxFileInput.files && gpxFileInput.files[0];
 
     if (!file) {
-      callback(null, 'Wybierz plik GPX');
+      callback(null, t("gpx.chooseFile"));
       return;
     }
 
@@ -130,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     };
     reader.onerror = function() {
-      callback(null, 'Nie udało się odczytać pliku GPX');
+      callback(null, t("gpx.readError"));
     };
     reader.readAsText(file);
   }
@@ -141,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   gpxFileInput.addEventListener('change', function() {
     const file = gpxFileInput.files && gpxFileInput.files[0];
-    gpxFileName.textContent = file ? file.name : 'Brak pliku';
+    gpxFileName.textContent = file ? file.name : t("gpx.noFile");
   });
 
   importGpxBtn.addEventListener('click', function() {
@@ -160,18 +194,18 @@ document.addEventListener('DOMContentLoaded', function() {
             data: gpx
           }, function(response) {
             if (response && response.success) {
-              gpxFileName.textContent = 'Brak pliku';
+              gpxFileName.textContent = t("gpx.noFile");
               gpxFileInput.value = '';
-              showStatus('Dodano GPX do mapy', 'success');
+              showStatus(t("gpx.added"), 'success');
             } else if (response && response.error) {
-              if (response.error === 'Brak odpowiedzi ze strony Komoot') {
-                showStatus('GPX zapisany', 'success');
+              if (response.error === 'Komoot did not respond') {
+                showStatus(t("gpx.saved"), 'success');
               } else {
                 setStoredGpxTracks(nextTracks.filter(track => track.id !== gpx.id));
                 showStatus(response.error, 'error');
               }
             } else {
-              showStatus('GPX zapisany', 'success');
+              showStatus(t("gpx.saved"), 'success');
             }
           });
         });
@@ -189,9 +223,9 @@ document.addEventListener('DOMContentLoaded', function() {
           data: { id: id }
         }, function(response) {
           if (response && response.success) {
-            showStatus('Usunięto GPX z mapy', 'success');
+            showStatus(t("gpx.removedFromMap"), 'success');
           } else {
-            showStatus('Usunięto zapisany GPX', 'success');
+            showStatus(t("gpx.removedFromStorage"), 'success');
           }
         });
       });
@@ -201,14 +235,14 @@ document.addEventListener('DOMContentLoaded', function() {
   removeAllGpxBtn.addEventListener('click', function() {
     chrome.storage.local.remove(['zaliczGmineGpxList'], function() {
       gpxFileInput.value = '';
-      gpxFileName.textContent = 'Brak pliku';
+      gpxFileName.textContent = t("gpx.noFile");
       renderGpxList([]);
 
       sendMessageToContentScript({ action: ACTION.REMOVE_GPX }, function(response) {
         if (response && response.success) {
-          showStatus('Usunięto GPX z mapy', 'success');
+          showStatus(t("gpx.removedFromMap"), 'success');
         } else {
-          showStatus('Usunięto zapisany GPX', 'success');
+          showStatus(t("gpx.removedFromStorage"), 'success');
         }
       });
     });
@@ -230,18 +264,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const version = ++searchVersion;
     userSearchResults.textContent = '';
     if (!query) {
-      showStatus('Wpisz nick lub ID użytkownika', 'error');
+      showStatus(t("account.queryRequired"), 'error');
       return;
     }
-    showStatus('Wyszukiwanie użytkowników…', 'info');
+    showStatus(t("account.searching"), 'info');
     try {
       const users = await api.searchUsers(query);
       if (version !== searchVersion) return;
       if (!users.length) {
-        showStatus('Nie znaleziono użytkowników', 'info');
+        showStatus(t("account.noResults"), 'info');
         return;
       }
-      showStatus('Wybierz konto z listy', 'info');
+      showStatus(t("account.selectResult"), 'info');
       for (const user of users) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -263,42 +297,41 @@ document.addEventListener('DOMContentLoaded', function() {
     userSearchResults.textContent = '';
     chrome.storage.local.set({ zaliczGmineUserId: userId, zaliczGmineUsername: user.username }, function() {
       if (chrome.runtime.lastError) {
-        showStatus('Nie udało się zapisać użytkownika', 'error');
+        showStatus(t("account.saveError"), 'error');
         return;
       }
       renderSelectedUser(userId, user.username);
       userIdInput.value = '';
-      showStatus(`Zapisano konto ${user.username}`, 'success');
+      showStatus(t('account.saved', { username: user.username }), 'success');
       sendMessageToContentScript({
         action: ACTION.RELOAD_COMMUNES,
         data: { userId }
       }, function(response) {
         if (response?.success) {
           visitedCommunesCountEl.textContent = response.visitedCommunesCount;
-          showStatus(`Załadowano ${response.visitedCommunesCount} gmin`, 'success');
+          showStatus(t('communes.loadedCount', { count: response.visitedCommunesCount }), 'success');
         } else if (response?.error) {
           showStatus(response.error, 'error');
         } else {
-          showStatus(`Zapisano konto ${user.username}. Otwórz mapę, aby załadować gminy.`, 'success');
+          showStatus(t('account.savedOpenMap', { username: user.username }), 'success');
         }
       });
     });
   }
 
   function updateVisibilityButton(visible) {
-    toggleBtn.textContent = visible ? 'Ukryj gminy' : 'Pokaż gminy';
+    toggleBtn.textContent = visible ? t("communes.hide") : t("communes.show");
   }
 
   toggleBtn.addEventListener('click', function() {
     sendMessageToContentScript({ action: ACTION.TOGGLE_COMMUNES }, function(response) {
       if (response && response.success) {
         updateVisibilityButton(response.visible);
-        const visibleText = response.visible ? 'widoczne' : 'ukryte';
-        showStatus(`Gminy są teraz ${visibleText}`, 'success');
+        showStatus(t(response.visible ? 'communes.nowVisible' : 'communes.nowHidden'), 'success');
       } else if (response && response.error) {
         showStatus(response.error, 'error');
       } else {
-        showStatus('Nie można połączyć się z mapą planera', 'error');
+        showStatus(t("map.connectionError"), 'error');
       }
     });
   });
@@ -309,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (response && response.connected) {
         mapStatusDot.classList.add('connected');
         mapStatusDot.classList.remove('disconnected');
-        mapStatusText.textContent = 'Połączono z mapą';
+        mapStatusText.textContent = t("map.connected");
         updateVisibilityButton(response.visible);
 
         if (response.visitedCommunesCount !== undefined) {
@@ -323,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         mapStatusDot.classList.add('disconnected');
         mapStatusDot.classList.remove('connected');
-        mapStatusText.textContent = 'Brak połączenia z mapą';
+        mapStatusText.textContent = t("map.disconnected");
         visitedCommunesCountEl.textContent = '-';
 
         // loadVisitedCommunesCountFromStorage();
@@ -340,15 +373,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // }
 
   function sendMessageToContentScript(message, callback) {
-    log.debug('Wysyłanie polecenia', { action: message.action });
+    log.debug('Sending command', { action: message.action });
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
       if (tabs[0]) {
         chrome.tabs.sendMessage(tabs[0].id, message, function(response) {
           if (chrome.runtime.lastError) {
-            log.warn('Brak odpowiedzi karty', chrome.runtime.lastError);
+            log.warn('Tab did not respond', chrome.runtime.lastError);
             if (callback) callback(null);
           } else {
-            log.debug('Odpowiedź na polecenie', { action: message.action, success: response?.success, connected: response?.connected });
+            log.debug('Command response', { action: message.action, success: response?.success, connected: response?.connected });
             if (callback) callback(response);
           }
         });

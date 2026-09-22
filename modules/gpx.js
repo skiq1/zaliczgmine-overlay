@@ -1,6 +1,7 @@
 (function(app) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('gpx');
 
   const { layerIds, sourceIds, styles } = app.config;
@@ -11,7 +12,7 @@
     const doc = new DOMParser().parseFromString(gpxText, 'application/xml');
 
     if (doc.querySelector('parsererror')) {
-      throw new Error('Nieprawidłowy plik GPX');
+      throw new Error(t("gpx.invalidFile"));
     }
 
     // mapbox/togeojson (BSD-2-Clause); see lib header and THIRD_PARTY_LICENSES.txt.
@@ -22,7 +23,7 @@
     );
 
     if (features.length === 0) {
-      throw new Error('GPX nie zawiera trasy ani śladu');
+      throw new Error(t("gpx.noTrack"));
     }
 
     return { type: 'FeatureCollection', features };
@@ -118,7 +119,7 @@
     const segmentsCount = geojson.features.reduce((count, feature) => count + (
       feature.geometry.type === 'MultiLineString' ? feature.geometry.coordinates.length : 1
     ), 0);
-    log.debug('Wczytano GPX', { segmentsCount });
+    log.debug('GPX loaded', { segmentsCount });
     const track = {
       id: id || Math.random().toString(36).slice(2),
       name: name || 'track.gpx',
@@ -143,7 +144,7 @@
   }
 
   function removeGpx(id) {
-    log.debug('Usuwanie GPX', { all: !id, tracksCount: tracks.length });
+    log.debug('Removing GPX', { all: !id, tracksCount: tracks.length });
     if (id) {
       const tracksCount = tracks.length;
       tracks = tracks.filter(track => track.id !== id);
@@ -172,7 +173,7 @@
       try {
         setGpx(track.text, track.name, track.id);
       } catch (error) {
-        log.error(`Pominięto GPX "${track.name || 'track.gpx'}":`, error);
+        log.error(`Skipped GPX "${track.name || 'track.gpx'}":`, error);
       }
     }
 

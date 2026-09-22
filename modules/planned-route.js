@@ -113,7 +113,7 @@
       }
       lastLines = lines;
       current = ++revision;
-      log.debug('Analiza zmienionej trasy', { revision: current, linesCount: lines.length });
+      log.debug('Analyzing updated route', { revision: current, linesCount: lines.length });
       const polygons = lines.length
         ? await app.modules.communesData.fetchRoutePolygons(lines)
         : [];
@@ -122,7 +122,7 @@
         ? await globalThis.ZaliczGmineRouteGeometry.calculate(lines, polygons, () => current !== revision)
         : [];
       if (!result || current !== revision) return;
-      log.debug('Analiza trasy zakończona', { revision: current, communesCount: result.length });
+      log.debug('Route analysis completed', { revision: current, communesCount: result.length });
       if (result.length !== matches.length || result.some((item, i) => item !== matches[i])) matches = result;
       render();
     } catch (error) {
@@ -131,7 +131,7 @@
       lastLines = null;
       matches = [];
       render();
-      log.warn('nie udało się przeanalizować trasy', error);
+      log.warn('Could not analyze route', error);
     }
   }
 
@@ -179,7 +179,7 @@
     stop();
     sourceId = globalThis.ZaliczGmineSites.getCurrentSite()?.routeSourceId;
     if (!sourceId) return;
-    log.debug('Uruchomienie obserwacji trasy', { sourceId });
+    log.debug('Starting route observer', { sourceId });
     watchedMap = app.state.map;
     watchedMap.on('sourcedata', onSourceData);
     watchedMap.on('styledata', onStyleData);

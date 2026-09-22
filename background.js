@@ -6,7 +6,7 @@ const { MESSAGE } = globalThis.ZaliczGmineMessageProtocol;
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    log.info('Nakładka została zainstalowana');
+    log.info('Overlay installed');
   }
 });
 
@@ -14,10 +14,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type !== MESSAGE.FETCH) return false;
 
   const startedAt = Date.now();
-  log.debug('Rozpoczęcie pobierania', { responseType: request.responseType });
+  log.debug('Starting fetch', { responseType: request.responseType });
   fetch(request.url)
     .then(async (response) => {
-      log.debug('Odpowiedź HTTP', { status: response.status, durationMs: Date.now() - startedAt });
+      log.debug('HTTP response', { status: response.status, durationMs: Date.now() - startedAt });
       if (request.responseType === 'text') {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })
     .then((data) => sendResponse({ success: true, data }))
     .catch((error) => {
-      log.error('Błąd pobierania', error);
+      log.error('Fetch failed', error);
       sendResponse({ success: false, error: error.message, code: error.code, http: error.http });
     });
 

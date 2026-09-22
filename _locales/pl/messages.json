@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "ZaliczGmine.pl - overlay"
+  },
+  "extensionTitle": {
+    "message": "ZaliczGmine.pl"
+  },
+  "extensionDescription": {
+    "message": "Wyświetlaj zaliczone gminy na mapach planerów tras."
+  }
+}

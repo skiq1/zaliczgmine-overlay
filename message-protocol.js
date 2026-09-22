@@ -5,7 +5,7 @@
     // content-script.js -> background.js
     FETCH: 'ZALICZGMINE_FETCH',
 
-    // strona <-> content-script.js
+    // page <-> content-script.js
     FETCH_REQUEST: 'ZALICZGMINE_FETCH_REQUEST',
     FETCH_RESPONSE: 'ZALICZGMINE_FETCH_RESPONSE',
 

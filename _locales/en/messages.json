@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "TickMyRide.com - overlay"
+  },
+  "extensionTitle": {
+    "message": "TickMyRide.com"
+  },
+  "extensionDescription": {
+    "message": "Show visited communes on route planner maps."
+  }
+}

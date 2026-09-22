@@ -1,6 +1,7 @@
 (function(app) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('map-app');
 
   const { ACTION, MESSAGE } = globalThis.ZaliczGmineMessageProtocol;
@@ -20,11 +21,15 @@
     waitForStyleLoad
   } = app.modules.mapLayers;
 
+  const languageReady = app.modules.extensionBridge.getStorage(['language']).then(settings => {
+    globalThis.ZaliczGmineI18n.setLanguage(settings.resolvedLanguage || settings.language);
+  });
   async function handleCommand(action, data = {}) {
-    log.debug('Obsługa polecenia', { action });
+    await languageReady;
+    log.debug('Handling command', { action });
     if (action === ACTION.TOGGLE_COMMUNES) {
       if (!app.state.map) {
-        return { success: false, error: 'Mapa nie została znaleziona' };
+        return { success: false, error: t("map.notFound") };
       }
 
       toggleLayers(!app.state.communesVisible);
@@ -73,7 +78,7 @@
       };
     }
 
-    return { success: false, error: 'Nieznana akcja' };
+    return { success: false, error: t("extension.unknownAction") };
   }
 
   window.addEventListener('message', async (event) => {
@@ -97,27 +102,28 @@
   });
 
   async function init() {
-    log.debug('Rozpoczęcie inicjalizacji');
+    await languageReady;
+    log.debug('Starting initialization');
     let communesLoadError = null;
 
     try {
       await loadVisitedCommunes();
     } catch (error) {
       communesLoadError = error;
-      log.error('Nie udalo się pobrac zaliczonych gmin:', error);
+      log.error('Could not fetch visited communes:', error);
     }
 
     for (let attempt = 0; attempt < 120; attempt++) {
       const map = await findMap();
       if (!map) {
-        if (attempt % 20 === 0) log.debug('Oczekiwanie na mapę', { attempt: attempt + 1 });
+        if (attempt % 20 === 0) log.debug('Waiting for map', { attempt: attempt + 1 });
         await new Promise(resolve => setTimeout(resolve, 500));
         continue;
       }
 
-      log.debug('Znaleziono mapę', { attempt: attempt + 1 });
+      log.debug('Map found', { attempt: attempt + 1 });
       await waitForStyleLoad();
-      log.debug('Styl mapy gotowy');
+      log.debug('Map style ready');
       app.modules.plannedRoute.start();
 
       const initialRequest = getPolygonRequestForMap(map);
@@ -132,20 +138,20 @@
       try {
         await loadStoredGpx();
       } catch (error) {
-        log.error('Nie udało się załadować zapisanego GPX:', error);
+        log.error('Could not load saved GPX:', error);
       }
       refreshCommunesForCurrentZoom();
       if (communesLoadError) {
-        showNotification(`Nie udało się pobrać zaliczonych gmin: ${communesLoadError.message}`);
+        showNotification(t('communes.visitedLoadError', { error: communesLoadError.message }));
       } else {
-        showNotification(`Załadowano gminy. Zaliczone: ${app.state.visitedCommunesIds.size}`);
+        showNotification(t('communes.loadedSummary', { count: app.state.visitedCommunesIds.size }));
       }
 
-      log.debug('Rozszerzenie gotowe');
+      log.debug('Extension ready');
       return;
     }
 
-    log.debug('Nie znaleziono mapy');
+    log.debug('Map not found');
   }
 
   window.zaliczGmine = app.state;

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZaliczGmine.pl — planery tras</title>
+  <title></title>
 
   <style>
     :root {
@@ -425,14 +425,29 @@
       text-underline-offset: 3px;
     }
 
-    .gpx-section > summary {
+    .gpx-section > summary,
+    .language-section > summary {
       cursor: pointer;
     }
 
-    .gpx-section[open] > summary {
+    .gpx-section[open] > summary,
+    .language-section[open] > summary {
       margin-bottom: 10px;
     }
 
+    .language-section select {
+      width: 100%;
+      min-height: 30px;
+      padding: 4px 8px;
+      border: 1px solid #dce1e4;
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+    }
+
+    select:focus-visible,
     button:focus-visible,
     a:focus-visible,
     summary:focus-visible {
@@ -448,13 +463,13 @@
     <header class="header">
       <img
         class="logo"
-        src="../assets/zaliczgmine-badge.png"
-        alt="ZaliczGmine.pl"
+        src="../assets/icons/icon16.svg"
+        alt="TickMyRide.com"
       >
 
       <div class="header-copy">
-        <div class="header-title">ZaliczGmine.pl</div>
-        <div class="header-subtitle">Nakładka mapy dla Komoot i VeloPlanner</div>
+        <div class="header-title">TickMyRide.com</div>
+        <div class="header-subtitle" data-i18n="app.subtitle"></div>
       </div>
     </header>
 
@@ -463,15 +478,15 @@
     <div class="summary">
       <div class="stats">
         <div class="stats-number" id="visitedCommunesCount">-</div>
-        <div class="stats-label">Zaliczonych gmin</div>
+        <div class="stats-label" data-i18n="communes.visitedLabel"></div>
       </div>
 
       <div class="map-connection">
         <div class="map-status">
           <div class="map-status-dot" id="mapStatusDot"></div>
-          <span id="mapStatusText">Sprawdzanie...</span>
+          <span id="mapStatusText" data-i18n="map.checking"></span>
         </div>
-    <nav id="plannerLinks" class="planner-links" hidden aria-label="Obsługiwane planery tras">
+    <nav id="plannerLinks" class="planner-links" hidden aria-label="" data-i18n-aria-label="map.supportedPlanners">
       <a href="https://www.komoot.com/plan" target="_blank" rel="noopener noreferrer">Komoot</a>
       <span aria-hidden="true">·</span>
       <a href="https://veloplanner.com/pl/plan" target="_blank" rel="noopener noreferrer">VeloPlanner</a>
@@ -481,42 +496,36 @@
 
     <div class="section">
       <div class="section-header">
-        <div class="section-title">Konto ZaliczGmine.pl</div>
+        <div class="section-title" data-i18n="account.title"></div>
       </div>
-      <div id="selectedUser" class="selected-user" aria-live="polite">Nie wybrano konta</div>
+      <div id="selectedUser" class="selected-user" aria-live="polite" data-i18n="account.noneSelected"></div>
 
       <div class="settings-row">
         <input
           id="userIdInput"
           type="text"
-          placeholder="Nick lub ID użytkownika"
+          placeholder="" data-i18n-placeholder="account.searchPlaceholder"
           aria-describedby="userSearchHint"
-          aria-label="Nick lub ID użytkownika"
+          aria-label="" data-i18n-aria-label="account.searchPlaceholder"
         >
         <button
           class="btn btn-primary"
           id="saveUserIdBtn"
-        >
-          Szukaj
-        </button>
+         data-i18n="account.search"></button>
       </div>
 
       <div id="userSearchResults" class="gpx-list" aria-live="polite"></div>
 
-      <div class="settings-hint" id="userSearchHint">
-        Wyszukaj i wybierz swoje konto z listy.
-      </div>
+      <div class="settings-hint" id="userSearchHint" data-i18n="account.searchHint"></div>
     </div>
 
     <button
       class="btn btn-secondary btn-main"
       id="toggleBtn"
-    >
-      Widoczność gmin
-    </button>
+     data-i18n="communes.visibility"></button>
 
     <details class="section gpx-section">
-      <summary class="section-title">Trasy GPX</summary>
+      <summary class="section-title" data-i18n="gpx.title"></summary>
 
       <input
         id="gpxFileInput"
@@ -529,32 +538,24 @@
         <div
           class="file-name"
           id="gpxFileName"
-        >
-          Nie wybrano pliku
-        </div>
+         data-i18n="gpx.noFile"></div>
 
         <button
           class="btn btn-secondary"
           id="chooseGpxBtn"
-        >
-          Wybierz
-        </button>
+         data-i18n="gpx.choose"></button>
       </div>
 
       <div class="gpx-actions">
         <button
           class="btn btn-primary"
           id="importGpxBtn"
-        >
-          Dodaj trasę
-        </button>
+         data-i18n="gpx.add"></button>
 
         <button
           class="btn btn-danger"
           id="removeAllGpxBtn"
-        >
-          Usuń wszystkie
-        </button>
+         data-i18n="gpx.removeAll"></button>
       </div>
 
       <div
@@ -565,15 +566,26 @@
       <div
         class="settings-hint"
         id="gpxStatusText"
-      >
-        Zaimportowane trasy pojawią się na mapie jako niebieskie linie.
-      </div>
+       data-i18n="gpx.importHint"></div>
     </details>
+
+    <details class="section language-section">
+      <summary class="section-title" data-i18n="language.title"></summary>
+      <select id="languageSelect" aria-label="" data-i18n-aria-label="language.title">
+        <option value="auto" data-i18n="language.automatic"></option>
+        <option value="en">English</option>
+        <option value="pl">Polski</option>
+      </select>
+      <div id="languageReloadHint" class="settings-hint" role="status" hidden
+        data-i18n="language.saved"></div>
+    </details>
+
 
 
 
   </div>
 
+  <script src="../i18n.js"></script>
   <script src="../logger.js"></script>
   <script src="../message-protocol.js"></script>
   <script src="../modules/zaliczgmine-api.js"></script>

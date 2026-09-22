@@ -1,6 +1,7 @@
 (function(app) {
   'use strict';
 
+  const { t } = globalThis.ZaliczGmineI18n;
   const log = globalThis.ZaliczGmineLogger.create('communes-data');
 
   const polygonsByRequest = new Map();
@@ -14,7 +15,7 @@
     const data = await api.getVisitedCommunes(userId, 'pl');
 
     const communesIds = new Set(data.items.map(item => String(item.id)));
-    log.debug('Załadowano zaliczone gminy', { count: communesIds.size });
+    log.debug('Visited communes loaded', { count: communesIds.size });
     app.state.visitedCommunesIds = communesIds;
     app.state.visitedCommunesSource = 'api';
     app.state.userId = String(userId);
@@ -38,7 +39,7 @@
     const normalizedId = userId ? String(userId).trim() : '';
     // only numeric user ID
     if (!/^\d+$/.test(normalizedId)) {
-      throw new Error('Nie ustawiono poprawnego ID użytkownika ZaliczGmine.pl');
+      throw new Error(t('account.invalidId'));
     }
 
     return loadVisitedCommunesFromApi(normalizedId);
@@ -151,14 +152,14 @@
 
   async function fetchPolygons(request) {
     if (polygonsByRequest.has(request.cacheKey)) {
-      log.debug('Gminy z cache', { apiZoom: request.apiZoom });
+      log.debug('Using cached communes', { apiZoom: request.apiZoom });
       const cachedPolygons = polygonsByRequest.get(request.cacheKey);
       rememberPolygons(request.cacheKey, cachedPolygons);
       return cachedPolygons;
     }
 
     if (pendingPolygonRequests.has(request.cacheKey)) {
-      log.debug('Współdzielenie trwającego żądania gmin', { apiZoom: request.apiZoom });
+      log.debug('Sharing in-flight commune request', { apiZoom: request.apiZoom });
       // Share the same error handling as the original caller.
       return pendingPolygonRequests.get(request.cacheKey).catch(() => null);
     }
@@ -166,14 +167,14 @@
     try {
       const pendingRequest = api.getPolygons(request.apiZoom, 'pl', request.bounds).then(items => {
         rememberPolygons(request.cacheKey, items);
-        log.debug(`pobrano ${items.length} gmin dla zoom=${request.apiZoom}`);
+        log.debug(`Fetched ${items.length} communes at zoom=${request.apiZoom}`);
         return items;
       });
 
       pendingPolygonRequests.set(request.cacheKey, pendingRequest);
       return await pendingRequest;
     } catch (error) {
-      log.error(`błąd pobierania gmin dla zoom=${request.apiZoom}:`, error);
+      log.error(`Could not fetch communes at zoom=${request.apiZoom}:`, error);
       return null;
     } finally {
       pendingPolygonRequests.delete(request.cacheKey);
@@ -205,12 +206,12 @@
       apiZoom, bounds,
       cacheKey: `route-polygons:${apiZoom}:${bounds.north}:${bounds.east}:${bounds.south}:${bounds.west}`
     });
-    if (!polygons) throw new Error('Nie udało się pobrać dokładnych granic gmin dla trasy');
+    if (!polygons) throw new Error(t("communes.boundariesError"));
     return polygons;
   }
 
   function activatePolygons(request, polygons) {
-    log.debug('Aktywacja granic gmin', { apiZoom: request.apiZoom, count: polygons.length });
+    log.debug('Activating commune boundaries', { apiZoom: request.apiZoom, count: polygons.length });
     app.state.polygonsKey = request.cacheKey;
     app.state.polygons = polygons;
   }
@@ -224,7 +225,7 @@
         if (filterVisited !== null && visited !== filterVisited) continue;
 
         const geometry = globalThis.ZaliczGmineCommunesGeometry.toGeoJSON(item);
-        if (!geometry) throw new Error('Nieprawidłowa geometria gminy');
+        if (!geometry) throw new Error(t("communes.invalidGeometry"));
 
         features.push({
           type: 'Feature',
@@ -236,7 +237,7 @@
           geometry
         });
       } catch (e) {
-        log.warn(`pominięto błędny polygon gminy ${item.i}`);
+        log.warn(`Skipped invalid polygon for commune ${item.i}`);
       }
     }
 
