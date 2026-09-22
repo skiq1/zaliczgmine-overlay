@@ -1,63 +1,62 @@
-# ZaliczGmine.pl - nakładka na mapy
+# TickMyRide.com / ZaliczGmine.pl — map overlay
 
-Rozszerzenie wyświetla zaliczone i niezaliczone gminy w Polsce na mapach **Komoot** i **VeloPlanner**. Pomaga planować trasy przez nowe gminy na podstawie danych wybranego konta ZaliczGmine.pl. Pozwala też dodać własne ślady GPX.
+This extension shows visited and unvisited communes in Poland on **Komoot** and **VeloPlanner** maps. It helps you plan routes through new communes using your TickMyRide.com / ZaliczGmine.pl account. You can also add your own GPX tracks.
 
-## Instalacja
+## Installation
 
-Rozszerzenie ładuje się lokalnie w przeglądarce opartej na Chromium (np. Chrome lub Edge).
+Load the extension locally in a Chromium-based browser such as Chrome or Edge.
 
-1. Pobierz repozytorium jako ZIP i rozpakuj je lub sklonuj przez Git.
-2. Otwórz `chrome://extensions` (Chrome) lub `edge://extensions` (Edge).
-3. Włącz **Tryb dewelopera**.
-4. Kliknij **Załaduj rozpakowane** i wybierz katalog zawierający `manifest.json`.
-5. Przypnij rozszerzenie do paska narzędzi i odśwież otwarte karty planerów.
+1. Download and extract this repository as a ZIP, or clone it with Git.
+2. Open `chrome://extensions` (Chrome) or `edge://extensions` (Edge).
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the directory containing `manifest.json`.
+5. Pin the extension to the toolbar and refresh any open planner tabs.
 
-Po aktualizacji plików kliknij przycisk przeładowania rozszerzenia na stronie rozszerzeń, a następnie odśwież planer.
+After updating the files, reload the extension on the extensions page and refresh the planner.
 
-## Konfiguracja
+## Setup
 
-1. Otwórz [planer Komoot](https://www.komoot.com/plan) lub [VeloPlanner](https://veloplanner.com/pl/plan).
-2. Kliknij ikonę rozszerzenia.
-3. W sekcji **Konto ZaliczGmine.pl** wpisz nick lub ID użytkownika i kliknij **Szukaj**.
-4. Wybierz konto z listy wyników. Rozszerzenie zapisze wybór i pobierze zaliczone gminy — nie podajesz hasła ani klucza API.
+1. Open the [Komoot planner](https://www.komoot.com/plan) or [VeloPlanner](https://veloplanner.com/en/plan).
+2. Click the extension icon.
+3. Under **TickMyRide.com account**, enter your username or user ID and click **Search**.
+4. Select your account from the results. The extension saves your choice and loads your visited communes. No password or API key is required.
 
-Aby zmienić konto, wyszukaj i wybierz inne. Panel pokazuje liczbę zaliczonych gmin oraz stan połączenia z mapą aktywnej karty.
+To switch accounts, search for and select another one. The popup shows the visited commune count and the connection status for the map in the active tab.
 
-## Korzystanie
+## Usage
 
-Nakładka działa w widoku planowania i edycji tras.
+The overlay works while planning or editing routes.
 
-| Kolor na mapie | Znaczenie |
+| Map color | Meaning |
 | --- | --- |
-| Zielone gminy | Zaliczone przez wybranego użytkownika (aktualnie niewyświetlane) |
-| Czerwone gminy | Niezaliczone |
-| Niebieskie gminy | Niezaliczone gminy przecinane przez aktualną trasę planera |
-| Niebieskie linie | Ślady GPX dodane przez rozszerzenie |
+| Green communes | Visited by the selected user (currently hidden) |
+| Red communes | Unvisited |
+| Blue communes | Unvisited communes crossed by the current planner route |
+| Blue lines | GPX tracks added through the extension |
 
-- Planuj trasę jak zwykle — podświetlenie przecinanych gmin aktualizuje się automatycznie po zmianie trasy.
-- Przycisk **Ukryj gminy / Pokaż gminy** przełącza widoczność warstw gmin.
-- Aby pobrać aktualny stan zaliczeń po zmianach w ZaliczGmine.pl, odśwież stronę planera.
+- Plan your route as usual. Highlighted communes update automatically when the route changes.
+- Use **Hide communes / Show communes** to toggle commune layers.
+- Refresh the planner to fetch updated visits after changes on TickMyRide.com or ZaliczGmine.pl.
 
-### Własne pliki GPX
+### GPX tracks
 
-W panelu rozwiń **Trasy GPX**, kliknij **Wybierz**, wskaż plik `.gpx` i wybierz **Dodaj trasę**. Możesz dodać kilka plików, usuwać je pojedynczo przyciskiem **Usuń** lub wybrać **Usuń wszystkie**.
+Expand **GPX tracks**, click **Choose**, select a `.gpx` file, then click **Add track**. You can add multiple files, remove them individually with **Remove**, or choose **Remove all**.
 
-Pliki są zapamiętywane lokalnie i ponownie wyświetlane po otwarciu planera. GPX jest dodatkowym śladem na mapie: nie staje się edytowalną trasą planera i nie uruchamia podświetlania przecinanych gmin.
+Files are saved locally and displayed again when you open a planner. GPX tracks are additional map overlays: they do not become editable planner routes or trigger commune highlighting.
 
+## Data and permissions
 
-## Dane i uprawnienia
+The language preference, selected account, and GPX files are stored in `chrome.storage.local`. The extension reads data from the tickmyride.com or zaliczgmine.pl API, depending on the selected language. Requests include the search query, user ID, and map or route bounds. GPX files are processed locally and shared with the planner page for display.
 
-Wybrane konto i pliki GPX są przechowywane w lokalnej pamięci rozszerzenia (`chrome.storage.local`). Rozszerzenie odczytuje dane z API ZaliczGmine.pl, przesyłając m.in. zapytanie wyszukiwania, ID użytkownika oraz granice obszaru mapy lub trasy. GPX jest przetwarzany lokalnie i udostępniany stronie planera do wyświetlenia.
+Permissions cover settings storage and access to supported planners, tickmyride.com, and zaliczgmine.pl.
 
-Uprawnienia obejmują zapis ustawień oraz dostęp do obsługiwanych planerów i ZaliczGmine.pl.
+## Libraries and licenses
 
-## Biblioteki i licencje
+The extension uses the following open-source projects:
 
-Rozszerzenie korzysta z następujących projektów open source:
-
-| Biblioteka | Zastosowanie | Licencja |
+| Library | Purpose | License |
 | --- | --- | --- |
-| [Turf.js 6.5.0](https://github.com/Turfjs/turf/tree/v6.5.0) | Adaptowane fragmenty algorytmów sprawdzających przecięcia trasy z gminami | MIT |
-| [mapbox/togeojson](https://github.com/mapbox/togeojson) | Konwersja plików GPX do GeoJSON wyświetlanego na mapie | BSD-2-Clause |
+| [Turf.js 6.5.0](https://github.com/Turfjs/turf/tree/v6.5.0) | Adapted algorithms for route–commune intersection checks | MIT |
+| [mapbox/togeojson](https://github.com/mapbox/togeojson) | GPX conversion to GeoJSON for map display | BSD-2-Clause |
 
-Pełne treści licencji i informacje o autorach znajdują się w [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). Plik należy dołączać do rozpowszechnianych kopii rozszerzenia.
+Full license texts and attribution are in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). Include this file when distributing copies of the extension.
