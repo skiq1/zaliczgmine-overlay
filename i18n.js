@@ -1,9 +1,9 @@
-(function(global) {
-  'use strict';
+(function (global) {
+  "use strict";
 
   // English is the fallback language
   const messages = {
-    "en": {
+    en: {
       "app.subtitle": "Map overlay for Komoot and VeloPlanner",
       "communes.visitedLabel": "Visited communes",
       "map.checking": "Checking...",
@@ -26,6 +26,9 @@
       "gpx.readError": "Could not read the GPX file",
       "gpx.added": "GPX added to the map",
       "gpx.saved": "GPX saved",
+      "gpx.someTracksUnavailable": "Some saved GPX tracks could not be loaded.",
+      "route.highlightingUnavailable":
+        "Route highlighting is unavailable. Commune boundaries and GPX tracks remain usable.",
       "gpx.removedFromMap": "GPX removed from the map",
       "gpx.removedFromStorage": "Saved GPX removed",
       "account.queryRequired": "Enter a username or user ID",
@@ -43,8 +46,10 @@
       "api.userNotFound": "User not found",
       "api.fetchError": "Could not fetch data",
       "api.error": "API error",
+      "storage.error": "Could not access saved settings or tracks",
       "api.invalidResponse": "Invalid API response",
       "extension.noResponse": "The extension did not respond",
+      "extension.unexpectedError": "Something went wrong. Please try again.",
       "gpx.invalidFile": "Invalid GPX file",
       "gpx.noTrack": "The GPX file contains no route or track",
       "communes.hideBoundaries": "Hide commune boundaries",
@@ -66,6 +71,8 @@
       "account.savedOpenMap": "Account {username} saved. Open a map to load communes.",
       "communes.nowVisible": "Communes are now visible",
       "communes.nowHidden": "Communes are now hidden",
+      "extension.retry": "Retry",
+      "communes.initialBoundariesError": "Could not load commune boundaries: {error}",
       "communes.visitedLoadError": "Could not load visited communes: {error}",
       "communes.loadedSummary": "Communes loaded. Visited: {count}",
       "communes.visitedCount": "{count} visited communes",
@@ -74,9 +81,9 @@
       "language.automatic": "Automatic (browser)",
       "app.title": "{brand} — route planners",
       "language.saved": "Language saved. Reopen this popup and refresh the planner to apply it.",
-      "language.saveError": "Could not save the language"
+      "language.saveError": "Could not save the language",
     },
-    "pl": {
+    pl: {
       "app.subtitle": "Nakładka mapy dla Komoot i VeloPlanner",
       "communes.visitedLabel": "Zaliczonych gmin",
       "map.checking": "Sprawdzanie...",
@@ -99,6 +106,9 @@
       "gpx.readError": "Nie udało się odczytać pliku GPX",
       "gpx.added": "Dodano GPX do mapy",
       "gpx.saved": "GPX zapisany",
+      "gpx.someTracksUnavailable": "Nie udało się wczytać niektórych zapisanych tras GPX.",
+      "route.highlightingUnavailable":
+        "Podświetlanie gmin na trasie jest niedostępne. Granice gmin i trasy GPX nadal działają.",
       "gpx.removedFromMap": "Usunięto GPX z mapy",
       "gpx.removedFromStorage": "Usunięto zapisany GPX",
       "account.queryRequired": "Wpisz nick lub ID użytkownika",
@@ -116,8 +126,10 @@
       "api.userNotFound": "Nie znaleziono użytkownika",
       "api.fetchError": "Nie udało się pobrać danych",
       "api.error": "Błąd API",
+      "storage.error": "Nie udało się odczytać lub zapisać ustawień albo tras",
       "api.invalidResponse": "Nieprawidłowa odpowiedź z API",
       "extension.noResponse": "Brak odpowiedzi rozszerzenia",
+      "extension.unexpectedError": "Wystąpił nieoczekiwany błąd. Spróbuj ponownie.",
       "gpx.invalidFile": "Nieprawidłowy plik GPX",
       "gpx.noTrack": "GPX nie zawiera trasy ani śladu",
       "communes.hideBoundaries": "Ukryj granice gmin",
@@ -139,6 +151,8 @@
       "account.savedOpenMap": "Zapisano konto {username}. Otwórz mapę, aby załadować gminy.",
       "communes.nowVisible": "Gminy są teraz widoczne",
       "communes.nowHidden": "Gminy są teraz ukryte",
+      "extension.retry": "Spróbuj ponownie",
+      "communes.initialBoundariesError": "Nie udało się pobrać granic gmin: {error}",
       "communes.visitedLoadError": "Nie udało się pobrać zaliczonych gmin: {error}",
       "communes.loadedSummary": "Załadowano gminy. Zaliczone: {count}",
       "communes.visitedCount": "{count} zaliczonych gmin",
@@ -146,36 +160,48 @@
       "language.title": "Język",
       "language.automatic": "Automatyczny (przeglądarka)",
       "app.title": "{brand} — planery tras",
-      "language.saved": "Język zapisany. Otwórz ponownie panel i odśwież planer, aby zastosować zmianę.",
-      "language.saveError": "Nie udało się zapisać języka"
-    }
+      "language.saved":
+        "Język zapisany. Otwórz ponownie panel i odśwież planer, aby zastosować zmianę.",
+      "language.saveError": "Nie udało się zapisać języka",
+    },
   };
+
   Object.values(messages).forEach(Object.freeze);
   Object.freeze(messages);
   let language = resolveLanguage();
 
   function resolveLanguage(preference, browserLanguage = global.navigator?.language) {
     if (Object.hasOwn(messages, preference)) return preference;
-    const browserLocale = (browserLanguage || '').toLowerCase().split('-')[0];
-    return Object.hasOwn(messages, browserLocale) ? browserLocale : 'en';
+    const browserLocale = (browserLanguage || "").toLowerCase().split("-")[0];
+
+    return Object.hasOwn(messages, browserLocale) ? browserLocale : "en";
   }
 
   function t(key, values = {}) {
     const template = messages[language]?.[key] ?? messages.en[key] ?? key;
+
     return template.replace(/\{(\w+)\}/g, (match, name) =>
-      String(name === 'brand' ? brand() : (values[name] ?? match)));
+      String(name === "brand" ? brand() : (values[name] ?? match)),
+    );
   }
 
   function brand() {
-    return language === 'pl' ? 'ZaliczGmine.pl' : 'TickMyRide.com';
+    return language === "pl" ? "ZaliczGmine.pl" : "TickMyRide.com";
   }
 
   global.ZaliczGmineI18n = {
-    t, brand, resolveLanguage, messages,
-    get language() { return language; },
-    get apiBase() { return language === 'pl' ? 'https://zaliczgmine.pl/api/' : 'https://tickmyride.com/api/'; },
+    t,
+    brand,
+    resolveLanguage,
+    messages,
+    get language() {
+      return language;
+    },
+    get apiBase() {
+      return language === "pl" ? "https://zaliczgmine.pl/api/" : "https://tickmyride.com/api/";
+    },
     setLanguage(preference, browserLanguage) {
       language = resolveLanguage(preference, browserLanguage);
-    }
+    },
   };
 })(globalThis);

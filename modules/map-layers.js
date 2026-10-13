@@ -1,36 +1,60 @@
-(function(app) {
-  'use strict';
+import { Effect, Match } from "effect";
+import { awaitMapReady } from "../src/map-lifetime.ts";
+
+(function (app) {
+  "use strict";
 
   const { t } = globalThis.ZaliczGmineI18n;
-  const log = globalThis.ZaliczGmineLogger.create('map-layers');
+  const log = globalThis.ZaliczGmineLogger.create("map-layers");
 
   const { layerIds, sourceIds, styles, zoom: zoomConfig } = app.config;
   const SHOW_VISITED_COMMUNES = false;
+
   const activeCommunesLayerIds = [
     layerIds.unvisitedFill,
     layerIds.unvisitedOutline,
-    ...(SHOW_VISITED_COMMUNES ? [layerIds.visitedFill, layerIds.visitedOutline] : [])
+    ...(SHOW_VISITED_COMMUNES ? [layerIds.visitedFill, layerIds.visitedOutline] : []),
   ];
+
   let latestPolygonRequestId = 0;
   let styleObserverAttached = false;
   let zoomObserverAttached = false;
+  let restoringStyle = false;
+  const observerCleanups = [];
 
-  function setMapboxSource(sourceId, geojsonData) {
-    const source = app.state.map.getSource(sourceId);
+  const renderedCommunes = new WeakMap();
+
+  function setMapboxSource(sourceId, filterVisited) {
+    let source = app.state.map.getSource(sourceId);
+    const { polygons, visitedCommunesIds } = app.state;
+    const previous = source && renderedCommunes.get(source);
+
+    // Both collections are replaced by communes-data, not mutated in place.
+    // Source identity invalidates the snapshot after a planner style reset.
+    if (previous?.polygons === polygons && previous.visitedCommunesIds === visitedCommunesIds)
+      return;
+
+    const data = app.modules.communesData.convertToGeoJSON(polygons, filterVisited);
+
     if (source) {
-      source.setData(geojsonData);
+      source.setData(data);
     } else {
-      app.state.map.addSource(sourceId, { type: 'geojson', data: geojsonData });
+      app.state.map.addSource(sourceId, { type: "geojson", data });
+      source = app.state.map.getSource(sourceId);
     }
+
+    renderedCommunes.set(source, { polygons, visitedCommunesIds });
   }
 
   function findInsertBeforeLayer() {
     const style = app.state.map.getStyle();
+
     if (!style || !style.layers) return null;
 
-    const labelTypes = ['label', 'poi', 'place', 'road-label'];
-    const layer = style.layers.find(styleLayer =>
-      labelTypes.some(type => styleLayer.id.toLowerCase().includes(type))
+    const labelTypes = ["label", "poi", "place", "road-label"];
+
+    const layer = style.layers.find((styleLayer) =>
+      labelTypes.some((type) => styleLayer.id.toLowerCase().includes(type)),
     );
 
     return layer ? layer.id : null;
@@ -43,7 +67,7 @@
   }
 
   function allLayersExist() {
-    return activeCommunesLayerIds.every(layerId => app.state.map.getLayer(layerId));
+    return activeCommunesLayerIds.every((layerId) => app.state.map.getLayer(layerId));
   }
 
   function shouldShowCommunesOutlines() {
@@ -52,72 +76,87 @@
 
   function addLayer(layerConfig, beforeLayer) {
     const layout = {
-      visibility: app.state.communesVisible ? 'visible' : 'none'
+      visibility: app.state.communesVisible ? "visible" : "none",
     };
 
     app.state.map.addLayer({ ...layerConfig, layout }, beforeLayer);
   }
 
   function addCommunesLayers() {
-    log.debug('Creating commune layers');
+    log.debug("Creating commune layers");
+
     if (!app.state.map || !app.state.polygons) return;
 
-    const { convertToGeoJSON } = app.modules.communesData;
     const beforeLayer = app.state.map.getLayer(layerIds.routeFill)
-      ? layerIds.routeFill : findInsertBeforeLayer();
+      ? layerIds.routeFill
+      : findInsertBeforeLayer();
 
-    setMapboxSource(sourceIds.visited, convertToGeoJSON(app.state.polygons, true));
-    setMapboxSource(sourceIds.unvisited, convertToGeoJSON(app.state.polygons, false));
+    updateCommunesSources();
 
     removeLayers();
 
-    addLayer({
-      id: layerIds.unvisitedFill,
-      type: 'fill',
-      source: sourceIds.unvisited,
-      paint: styles.unvisitedFill
-    }, beforeLayer);
+    addLayer(
+      {
+        id: layerIds.unvisitedFill,
+        type: "fill",
+        source: sourceIds.unvisited,
+        paint: styles.unvisitedFill,
+      },
+      beforeLayer,
+    );
 
-    addLayer({
-      id: layerIds.unvisitedOutline,
-      type: 'line',
-      source: sourceIds.unvisited,
-      paint: {
-        ...styles.unvisitedOutline,
-        'line-opacity': shouldShowCommunesOutlines()
-          ? styles.unvisitedOutline['line-opacity']
-          : 0
-      }
-    }, beforeLayer);
+    addLayer(
+      {
+        id: layerIds.unvisitedOutline,
+        type: "line",
+        source: sourceIds.unvisited,
+        paint: {
+          ...styles.unvisitedOutline,
+          "line-opacity": shouldShowCommunesOutlines()
+            ? styles.unvisitedOutline["line-opacity"]
+            : 0,
+        },
+      },
+      beforeLayer,
+    );
 
     if (SHOW_VISITED_COMMUNES) {
-      addLayer({
-        id: layerIds.visitedFill,
-        type: 'fill',
-        source: sourceIds.visited,
-        paint: styles.visitedFill
-      }, beforeLayer);
+      addLayer(
+        {
+          id: layerIds.visitedFill,
+          type: "fill",
+          source: sourceIds.visited,
+          paint: styles.visitedFill,
+        },
+        beforeLayer,
+      );
 
-      addLayer({
-        id: layerIds.visitedOutline,
-        type: 'line',
-        source: sourceIds.visited,
-        paint: styles.visitedOutline
-      }, beforeLayer);
+      addLayer(
+        {
+          id: layerIds.visitedOutline,
+          type: "line",
+          source: sourceIds.visited,
+          paint: styles.visitedOutline,
+        },
+        beforeLayer,
+      );
     }
   }
 
   function updateCommunesSources() {
     if (!app.state.map || !app.state.polygons) return;
 
-    const { convertToGeoJSON } = app.modules.communesData;
-    setMapboxSource(sourceIds.visited, convertToGeoJSON(app.state.polygons, true));
-    setMapboxSource(sourceIds.unvisited, convertToGeoJSON(app.state.polygons, false));
+    if (SHOW_VISITED_COMMUNES) {
+      setMapboxSource(sourceIds.visited, true);
+    }
+
+    setMapboxSource(sourceIds.unvisited, false);
   }
 
   function refreshCommunesStyles() {
     updateUserSummary();
     app.modules.plannedRoute?.render();
+
     if (!app.state.map) return;
 
     if (allLayersExist()) {
@@ -128,18 +167,30 @@
 
   async function refreshCommunesForCurrentZoom() {
     if (!app.state.map) return;
+
     if (!app.state.communesVisible) return;
     updateOutlineVisibility();
 
     const { getPolygonRequestForMap, fetchPolygons, activatePolygons } = app.modules.communesData;
     const request = getPolygonRequestForMap(app.state.map);
+    // Even reuse invalidates a pending result for a viewport we have left.
+    const requestId = ++latestPolygonRequestId;
 
     if (request.cacheKey === app.state.polygonsKey && app.state.polygons) return;
 
-    const requestId = ++latestPolygonRequestId;
-    const polygons = await fetchPolygons(request);
+    const polygons = await fetchPolygons(request).catch((error) => {
+      log.warn("Could not refresh boundaries", error);
 
-    if (!app.state.communesVisible || !polygons || requestId !== latestPolygonRequestId) return;
+      return null;
+    });
+
+    if (
+      !app.state.map ||
+      !app.state.communesVisible ||
+      !polygons ||
+      requestId !== latestPolygonRequestId
+    )
+      return;
 
     activatePolygons(request, polygons);
 
@@ -152,13 +203,13 @@
   }
 
   function toggleLayers(visible, refreshVisibleLayers = true) {
-    log.debug('Changing commune visibility', { visible });
+    log.debug("Changing commune visibility", { visible });
     app.state.communesVisible = visible;
-    const visibility = visible ? 'visible' : 'none';
+    const visibility = visible ? "visible" : "none";
 
     for (const layerId of activeCommunesLayerIds) {
       if (app.state.map && app.state.map.getLayer(layerId)) {
-        app.state.map.setLayoutProperty(layerId, 'visibility', visibility);
+        app.state.map.setLayoutProperty(layerId, "visibility", visibility);
       }
     }
 
@@ -167,7 +218,9 @@
     app.modules.plannedRoute?.setVisible(visible);
 
     if (visible && refreshVisibleLayers) {
-      refreshCommunesForCurrentZoom();
+      refreshCommunesForCurrentZoom().catch((error) =>
+        log.warn("Could not refresh boundaries", error),
+      );
     }
   }
 
@@ -175,42 +228,48 @@
     if (!app.state.map) return;
 
     const outlineOpacity = shouldShowCommunesOutlines()
-      ? styles.unvisitedOutline['line-opacity']
+      ? styles.unvisitedOutline["line-opacity"]
       : 0;
 
     if (app.state.map.getLayer(layerIds.unvisitedOutline)) {
-      app.state.map.setPaintProperty(
-        layerIds.unvisitedOutline,
-        'line-opacity',
-        outlineOpacity
-      );
+      app.state.map.setPaintProperty(layerIds.unvisitedOutline, "line-opacity", outlineOpacity);
     }
   }
 
   function updateToggleButton() {
-    const button = document.getElementById('zaliczgmine-toggle');
+    const button = document.getElementById("zaliczgmine-toggle");
+
     if (!button) return;
 
     const visible = app.state.communesVisible;
-    button.style.background = visible ? '#348b42' : '#b8c0ba';
-    button.setAttribute('aria-label', t('communes.boundaries'));
-    button.setAttribute('aria-checked', String(visible));
+    button.style.background = visible ? "#348b42" : "#b8c0ba";
+    button.setAttribute("aria-label", t("communes.boundaries"));
+    button.setAttribute("aria-checked", String(visible));
     button.title = visible ? t("communes.hideBoundaries") : t("communes.showBoundaries");
-    button.firstElementChild.style.transform = visible ? 'translateX(16px)' : 'translateX(0)';
+    button.firstElementChild.style.transform = visible ? "translateX(16px)" : "translateX(0)";
   }
 
   function updateUserSummary() {
-    const summary = document.getElementById('zaliczgmine-user-summary');
+    const summary = document.getElementById("zaliczgmine-user-summary");
+
     if (!summary) return;
 
-    const hasUser = app.state.visitedCommunesSource !== 'none';
-    const username = hasUser ? (app.state.username || `ID: ${app.state.userId}`) : globalThis.ZaliczGmineI18n.brand();
+    const hasUser = app.state.visitedCommunesSource !== "none";
+
+    const username = hasUser
+      ? app.state.username || `ID: ${app.state.userId}`
+      : globalThis.ZaliczGmineI18n.brand();
+
     const count = app.state.visitedCommunesIds.size;
-    summary.querySelector('[data-username]').textContent = username;
-    summary.querySelector('[data-count]').textContent = hasUser
-      ? t('communes.visitedCount', { count: count.toLocaleString(globalThis.ZaliczGmineI18n.language) })
+    summary.querySelector("[data-username]").textContent = username;
+    summary.querySelector("[data-count]").textContent = hasUser
+      ? t("communes.visitedCount", {
+          count: count.toLocaleString(globalThis.ZaliczGmineI18n.language),
+        })
       : t("account.selectInExtension");
-    summary.title = hasUser ? t('account.mapSummary', { username, count }) : globalThis.ZaliczGmineI18n.brand();
+    summary.title = hasUser
+      ? t("account.mapSummary", { username, count })
+      : globalThis.ZaliczGmineI18n.brand();
   }
 
   function addToggleButton() {
@@ -218,10 +277,10 @@
     const mapControls = site?.controlsContainer();
 
     // const mapControls = document.querySelector('.maplibregl-ctrl-top-left, .mapboxgl-ctrl-top-left');
-    if (!mapControls || document.getElementById('zaliczgmine-toggle')) return;
+    if (!mapControls || document.getElementById("zaliczgmine-toggle")) return;
 
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'maplibregl-ctrl';
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "maplibregl-ctrl";
     buttonContainer.style.cssText = `
       display: flex; align-items: center; gap: 14px;
       box-sizing: border-box; max-width: min(280px, 70vw);
@@ -232,45 +291,48 @@
       pointer-events: auto;
     `;
 
-    const button = document.createElement('button');
-    button.id = 'zaliczgmine-toggle';
-    button.type = 'button';
-    button.setAttribute('role', 'switch');
-    button.setAttribute('aria-label', t("communes.boundaries"));
+    const button = document.createElement("button");
+    button.id = "zaliczgmine-toggle";
+    button.type = "button";
+    button.setAttribute("role", "switch");
+    button.setAttribute("aria-label", t("communes.boundaries"));
     button.style.cssText = `
       position: relative; flex: 0 0 40px; width: 40px; height: 24px;
       min-width: 40px; min-height: 24px; margin: 0; padding: 3px;
       border: 0; border-radius: 999px; cursor: pointer;
       transition: background 150ms ease;
     `;
-    const thumb = document.createElement('span');
-    thumb.setAttribute('aria-hidden', 'true');
+    const thumb = document.createElement("span");
+    thumb.setAttribute("aria-hidden", "true");
     thumb.style.cssText = `
       display: block; width: 18px; height: 18px; border-radius: 50%;
       background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       transition: transform 150ms ease; pointer-events: none;
     `;
     button.appendChild(thumb);
-    button.addEventListener('focus', () => {
-      button.style.outline = '2px solid #246b31';
-      button.style.outlineOffset = '3px';
+    button.addEventListener("focus", () => {
+      button.style.outline = "2px solid #246b31";
+      button.style.outlineOffset = "3px";
     });
-    button.addEventListener('blur', () => { button.style.outline = ''; });
-    button.addEventListener('click', () => toggleLayers(!app.state.communesVisible));
+    button.addEventListener("blur", () => {
+      button.style.outline = "";
+    });
+    button.addEventListener("click", () => toggleLayers(!app.state.communesVisible));
 
-    const summary = document.createElement('div');
-    summary.id = 'zaliczgmine-user-summary';
-    summary.setAttribute('role', 'status');
-    summary.setAttribute('aria-live', 'polite');
+    const summary = document.createElement("div");
+    summary.id = "zaliczgmine-user-summary";
+    summary.setAttribute("role", "status");
+    summary.setAttribute("aria-live", "polite");
     summary.style.cssText = `
       min-width: 0; color: #28332b; font: 12px/1.5 Arial, sans-serif;
     `;
-    const name = document.createElement('div');
-    name.setAttribute('data-username', '');
-    name.style.cssText = 'font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-    const count = document.createElement('div');
-    count.setAttribute('data-count', '');
-    count.style.cssText = 'font-size: 11px; color: #52705a;';
+    const name = document.createElement("div");
+    name.setAttribute("data-username", "");
+    name.style.cssText =
+      "font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
+    const count = document.createElement("div");
+    count.setAttribute("data-count", "");
+    count.style.cssText = "font-size: 11px; color: #52705a;";
     summary.appendChild(name);
     summary.appendChild(count);
 
@@ -281,29 +343,48 @@
     updateUserSummary();
   }
 
-  async function waitForStyleLoad() {
-    if (!app.state.map) return;
+  function waitForStyleLoad(signal) {
+    return Effect.runPromise(
+      awaitMapReady(
+        Effect.sync(() => (app.state.map?.isStyleLoaded() ? true : null)),
+        "style",
+      ),
+      { signal },
+    );
+  }
 
-    while (!app.state.map.isStyleLoaded()) {
-      await new Promise(resolve => setTimeout(resolve, 250));
-    }
+  function stop() {
+    latestPolygonRequestId++;
+
+    for (const cleanup of observerCleanups.splice(0)) cleanup();
+    styleObserverAttached = zoomObserverAttached = false;
   }
 
   function setupStyleChangeObserver() {
     if (!app.state.map || styleObserverAttached) return;
 
-    styleObserverAttached = true;
-    app.state.map.on('styledata', async () => {
-      await waitForStyleLoad();
-      if (!app.state.polygons) return;
+    const restoreLayers = () => {
+      // Style mutations emit styledata too. Restore only missing layers, and
+      // let the next ready event handle loading instead of starting pollers.
+      if (restoringStyle || !app.state.map.isStyleLoaded() || !app.state.polygons) return;
+      restoringStyle = true;
 
-      if (allLayersExist()) {
-        toggleLayers(app.state.communesVisible, false);
-      } else {
-        addCommunesLayers();
+      try {
+        if (!allLayersExist()) addCommunesLayers();
+        app.modules.gpx.renderGpx();
+      } finally {
+        restoringStyle = false;
       }
+    };
 
-      app.modules.gpx.renderGpx();
+    styleObserverAttached = true;
+    app.state.map.on("styledata", restoreLayers);
+    // Sources may finish loading after the last styledata event.
+    app.state.map.on("idle", restoreLayers);
+    const map = app.state.map;
+    observerCleanups.push(() => {
+      map.off("styledata", restoreLayers);
+      map.off("idle", restoreLayers);
     });
   }
 
@@ -311,29 +392,65 @@
     if (!app.state.map || zoomObserverAttached) return;
 
     let debounceId = null;
+
     const scheduleRefresh = () => {
       window.clearTimeout(debounceId);
-      debounceId = window.setTimeout(
-        refreshCommunesForCurrentZoom,
-        zoomConfig.debounceMs
-      );
+      debounceId = window.setTimeout(() => {
+        refreshCommunesForCurrentZoom().catch((error) =>
+          log.warn("Could not refresh boundaries", error),
+        );
+      }, zoomConfig.debounceMs);
     };
 
     zoomObserverAttached = true;
-    app.state.map.on('zoomend', scheduleRefresh);
-    app.state.map.on('moveend', scheduleRefresh);
+    app.state.map.on("zoomend", scheduleRefresh);
+    app.state.map.on("moveend", scheduleRefresh);
+    const map = app.state.map;
+    observerCleanups.push(() => {
+      window.clearTimeout(debounceId);
+      map.off("zoomend", scheduleRefresh);
+      map.off("moveend", scheduleRefresh);
+    });
   }
 
-  function showNotification(message) {
-    const existing = document.getElementById('zaliczgmine-notification');
+  function showNotification(message, retry, channel) {
+    const id = channel ? `zaliczgmine-${channel}-notification` : "zaliczgmine-notification";
+    const existing = document.getElementById(id);
+
     if (existing) existing.remove();
 
-    const notification = document.createElement('div');
-    notification.id = 'zaliczgmine-notification';
+    const notification = document.createElement("div");
+    notification.id = id;
     notification.textContent = message;
+    notification.setAttribute("role", "status");
+
+    if (retry) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = t("extension.retry");
+      button.style.marginLeft = "12px";
+      button.addEventListener("click", async () => {
+        if (button.disabled) return;
+        button.disabled = true;
+
+        try {
+          await retry();
+        } finally {
+          button.disabled = false;
+        }
+      });
+      notification.appendChild(button);
+    }
+
+    const top = Match.value(channel).pipe(
+      Match.when("route", () => 100),
+      Match.when("gpx", () => 180),
+      Match.orElse(() => 20),
+    );
+
     notification.style.cssText = `
       position: fixed;
-      top: 20px;
+      top: ${top}px;
       right: 20px;
       background: linear-gradient(135deg, #51cf66 0%, #2f9e44 100%);
       color: white;
@@ -345,9 +462,12 @@
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     `;
     document.body.appendChild(notification);
-    setTimeout(() => {
-      if (notification.parentElement) notification.remove();
-    }, 4000);
+
+    if (!retry) {
+      setTimeout(() => {
+        if (notification.parentElement) notification.remove();
+      }, 4000);
+    }
   }
 
   app.modules.mapLayers = {
@@ -359,6 +479,7 @@
     setupZoomObserver,
     showNotification,
     toggleLayers,
-    waitForStyleLoad
+    waitForStyleLoad,
+    stop,
   };
 })(window.ZaliczGmine);
